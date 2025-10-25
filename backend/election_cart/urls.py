@@ -19,6 +19,8 @@ urlpatterns = [
     path('api/staff/orders/', StaffOrderListView.as_view(), name='staff-order-list'),
     path('api/staff/orders/<int:pk>/', StaffOrderDetailView.as_view(), name='staff-order-detail'),
     path('api/staff/checklist/<int:item_id>/', update_checklist_item, name='staff-checklist-update'),
+    # Secure file serving
+    path('api/secure-files/', include('products.file_urls')),
 ]
 
 if settings.DEBUG:

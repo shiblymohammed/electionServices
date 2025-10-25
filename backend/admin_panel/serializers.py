@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from authentication.models import CustomUser
-from orders.models import Order, OrderItem, OrderResource, OrderChecklist, ChecklistItem
+from orders.models import Order, OrderItem, OrderResource, OrderChecklist, ChecklistItem, DynamicResourceSubmission
+from products.models import ResourceFieldDefinition
 from products.serializers import PackageSerializer, CampaignSerializer
 from .models import Notification
 
@@ -81,10 +82,13 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
         return float(obj.get_subtotal())
     
     def get_resources(self, obj):
-        """Return uploaded resources if available"""
+        """Return uploaded resources if available (both static and dynamic)"""
+        resources = {}
+        
+        # Check for old static resources
         try:
             resource = obj.resources
-            return {
+            resources['static'] = {
                 'id': resource.id,
                 'candidate_photo': resource.candidate_photo.url if resource.candidate_photo else None,
                 'party_logo': resource.party_logo.url if resource.party_logo else None,
@@ -95,7 +99,34 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
                 'uploaded_at': resource.uploaded_at
             }
         except OrderResource.DoesNotExist:
-            return None
+            resources['static'] = None
+        
+        # Get dynamic resource submissions
+        dynamic_submissions = DynamicResourceSubmission.objects.filter(order_item=obj).select_related('field_definition')
+        resources['dynamic'] = []
+        
+        for submission in dynamic_submissions:
+            field_def = submission.field_definition
+            submission_data = {
+                'id': submission.id,
+                'field_id': field_def.id,
+                'field_name': field_def.field_name,
+                'field_type': field_def.field_type,
+                'uploaded_at': submission.uploaded_at
+            }
+            
+            # Add the appropriate value based on field type
+            if field_def.field_type == 'text':
+                submission_data['value'] = submission.text_value
+            elif field_def.field_type == 'number':
+                submission_data['value'] = submission.number_value
+            elif field_def.field_type in ['image', 'document']:
+                submission_data['value'] = submission.file_value.url if submission.file_value else None
+                submission_data['file_name'] = submission.file_value.name if submission.file_value else None
+            
+            resources['dynamic'].append(submission_data)
+        
+        return resources
 
 
 class AdminOrderListSerializer(serializers.ModelSerializer):
@@ -145,12 +176,22 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
         return obj.get_resource_upload_progress()
     
     def get_resources(self, obj):
-        """Return all uploaded resources from all order items"""
+        """Return all uploaded resources from all order items (both static and dynamic)"""
         resources_list = []
+        
         for item in obj.items.all():
+            item_resources = {
+                'order_item_id': item.id,
+                'item_type': item.content_type.model,
+                'item_name': str(item.content_object) if item.content_object else 'Unknown',
+                'static': None,
+                'dynamic': []
+            }
+            
+            # Check for old static resources
             try:
                 resource = item.resources
-                resources_list.append({
+                item_resources['static'] = {
                     'id': resource.id,
                     'candidate_photo': resource.candidate_photo.url if resource.candidate_photo else None,
                     'party_logo': resource.party_logo.url if resource.party_logo else None,
@@ -159,32 +200,67 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
                     'whatsapp_number': resource.whatsapp_number,
                     'additional_notes': resource.additional_notes,
                     'uploaded_at': resource.uploaded_at
-                })
+                }
             except OrderResource.DoesNotExist:
-                # Skip items without resources
-                continue
+                pass
+            
+            # Get dynamic resource submissions
+            dynamic_submissions = DynamicResourceSubmission.objects.filter(order_item=item).select_related('field_definition')
+            
+            for submission in dynamic_submissions:
+                field_def = submission.field_definition
+                submission_data = {
+                    'id': submission.id,
+                    'field_id': field_def.id,
+                    'field_name': field_def.field_name,
+                    'field_type': field_def.field_type,
+                    'uploaded_at': submission.uploaded_at
+                }
+                
+                # Add the appropriate value based on field type
+                if field_def.field_type == 'text':
+                    submission_data['value'] = submission.text_value
+                elif field_def.field_type == 'number':
+                    submission_data['value'] = submission.number_value
+                elif field_def.field_type in ['image', 'document']:
+                    submission_data['value'] = submission.file_value.url if submission.file_value else None
+                    submission_data['file_name'] = submission.file_value.name if submission.file_value else None
+                
+                item_resources['dynamic'].append(submission_data)
+            
+            # Only add to list if there are any resources
+            if item_resources['static'] or item_resources['dynamic']:
+                resources_list.append(item_resources)
+        
         return resources_list
     
     def get_checklist(self, obj):
         """Return checklist if exists"""
         try:
+            from .checklist_service import ChecklistService
+            
             checklist = obj.checklist
             items = checklist.items.all()
-            total_items = items.count()
-            completed_items = items.filter(completed=True).count()
+            
+            # Use ChecklistService to calculate progress excluding optional items
+            progress = ChecklistService.get_checklist_progress(checklist)
             
             return {
                 'id': checklist.id,
-                'total_items': total_items,
-                'completed_items': completed_items,
-                'progress_percentage': int((completed_items / total_items * 100)) if total_items > 0 else 0,
+                'total_items': progress['total_items'],
+                'completed_items': progress['completed_items'],
+                'required_items': progress['required_items'],
+                'completed_required': progress['completed_required'],
+                'progress_percentage': progress['progress_percentage'],
                 'items': [{
                     'id': item.id,
                     'description': item.description,
                     'completed': item.completed,
                     'completed_at': item.completed_at,
                     'completed_by': UserBasicSerializer(item.completed_by).data if item.completed_by else None,
-                    'order_index': item.order_index
+                    'order_index': item.order_index,
+                    'is_optional': item.is_optional,
+                    'template_item_id': item.template_item.id if item.template_item else None
                 } for item in items]
             }
         except OrderChecklist.DoesNotExist:
@@ -218,3 +294,127 @@ class NotificationSerializer(serializers.ModelSerializer):
     def get_order_number(self, obj):
         """Return order number if order exists"""
         return obj.order.order_number if obj.order else None
+
+
+class ResourceFieldDefinitionSerializer(serializers.ModelSerializer):
+    """Serializer for resource field definitions"""
+    product_type = serializers.SerializerMethodField()
+    product_id = serializers.IntegerField(source='object_id', read_only=True)
+    
+    class Meta:
+        model = ResourceFieldDefinition
+        fields = [
+            'id', 'product_type', 'product_id', 'field_name', 'field_type',
+            'is_required', 'order', 'help_text', 'max_file_size_mb',
+            'max_length', 'min_value', 'max_value', 'allowed_extensions',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+    
+    def get_product_type(self, obj):
+        """Return the product type (package or campaign)"""
+        return obj.content_type.model if obj.content_type else None
+    
+    def validate(self, data):
+        """Validate field configuration based on field type"""
+        field_type = data.get('field_type')
+        
+        # Validate image field configuration
+        if field_type == 'image':
+            if data.get('max_file_size_mb') and data['max_file_size_mb'] > 10:
+                raise serializers.ValidationError({
+                    'max_file_size_mb': 'Maximum file size for images cannot exceed 10MB'
+                })
+        
+        # Validate document field configuration
+        elif field_type == 'document':
+            if data.get('max_file_size_mb') and data['max_file_size_mb'] > 20:
+                raise serializers.ValidationError({
+                    'max_file_size_mb': 'Maximum file size for documents cannot exceed 20MB'
+                })
+        
+        # Validate text field configuration
+        elif field_type == 'text':
+            if data.get('max_length') and data['max_length'] > 500:
+                raise serializers.ValidationError({
+                    'max_length': 'Maximum length for text fields cannot exceed 500 characters'
+                })
+        
+        # Validate number field configuration
+        elif field_type == 'number':
+            min_val = data.get('min_value')
+            max_val = data.get('max_value')
+            if min_val is not None and max_val is not None and min_val > max_val:
+                raise serializers.ValidationError({
+                    'min_value': 'Minimum value cannot be greater than maximum value'
+                })
+        
+        return data
+
+
+class ResourceFieldCreateSerializer(serializers.Serializer):
+    """Serializer for creating resource field definitions"""
+    field_name = serializers.CharField(max_length=100)
+    field_type = serializers.ChoiceField(choices=['image', 'text', 'number', 'document', 'phone', 'date'])
+    is_required = serializers.BooleanField(default=True)
+    order = serializers.IntegerField(default=0)
+    help_text = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    max_file_size_mb = serializers.IntegerField(required=False, allow_null=True)
+    max_length = serializers.IntegerField(required=False, allow_null=True)
+    min_value = serializers.IntegerField(required=False, allow_null=True)
+    max_value = serializers.IntegerField(required=False, allow_null=True)
+    allowed_extensions = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True
+    )
+    
+    def validate(self, data):
+        """Validate field configuration based on field type"""
+        field_type = data.get('field_type')
+        
+        # Validate image field configuration
+        if field_type == 'image':
+            if data.get('max_file_size_mb') and data['max_file_size_mb'] > 10:
+                raise serializers.ValidationError({
+                    'max_file_size_mb': 'Maximum file size for images cannot exceed 10MB'
+                })
+        
+        # Validate document field configuration
+        elif field_type == 'document':
+            if data.get('max_file_size_mb') and data['max_file_size_mb'] > 20:
+                raise serializers.ValidationError({
+                    'max_file_size_mb': 'Maximum file size for documents cannot exceed 20MB'
+                })
+        
+        # Validate text field configuration
+        elif field_type == 'text':
+            if data.get('max_length') and data['max_length'] > 500:
+                raise serializers.ValidationError({
+                    'max_length': 'Maximum length for text fields cannot exceed 500 characters'
+                })
+        
+        # Validate number field configuration
+        elif field_type == 'number':
+            min_val = data.get('min_value')
+            max_val = data.get('max_value')
+            if min_val is not None and max_val is not None and min_val > max_val:
+                raise serializers.ValidationError({
+                    'min_value': 'Minimum value cannot be greater than maximum value'
+                })
+        
+        return data
+
+
+class ResourceFieldReorderSerializer(serializers.Serializer):
+    """Serializer for reordering resource fields"""
+    field_orders = serializers.ListField(
+        child=serializers.DictField(child=serializers.IntegerField())
+    )
+    
+    def validate_field_orders(self, value):
+        """Validate that each item has id and order"""
+        for item in value:
+            if 'id' not in item or 'order' not in item:
+                raise serializers.ValidationError('Each item must have id and order fields')
+        return value

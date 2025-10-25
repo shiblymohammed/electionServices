@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, OrderResource, OrderChecklist, ChecklistItem
+from .models import Order, OrderItem, OrderResource, OrderChecklist, ChecklistItem, DynamicResourceSubmission, PaymentHistory
 from products.serializers import PackageSerializer, CampaignSerializer
 
 
@@ -145,3 +145,81 @@ class OrderChecklistSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderChecklist
         fields = ['id', 'order', 'items', 'created_at']
+
+
+
+class DynamicResourceFieldSerializer(serializers.Serializer):
+    """Serializer for dynamic resource field information"""
+    id = serializers.IntegerField()
+    field_name = serializers.CharField()
+    field_type = serializers.CharField()
+    is_required = serializers.BooleanField()
+    order = serializers.IntegerField()
+    help_text = serializers.CharField()
+    max_file_size_mb = serializers.IntegerField(allow_null=True)
+    max_length = serializers.IntegerField(allow_null=True)
+    min_value = serializers.IntegerField(allow_null=True)
+    max_value = serializers.IntegerField(allow_null=True)
+    allowed_extensions = serializers.ListField(child=serializers.CharField(), allow_empty=True)
+
+
+class DynamicResourceSubmissionSerializer(serializers.ModelSerializer):
+    """Serializer for dynamic resource submissions"""
+    field_definition = serializers.SerializerMethodField()
+    value = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DynamicResourceSubmission
+        fields = ['id', 'field_definition', 'value', 'uploaded_at']
+        read_only_fields = ['id', 'uploaded_at']
+    
+    def get_field_definition(self, obj):
+        """Return field definition details"""
+        return {
+            'id': obj.field_definition.id,
+            'field_name': obj.field_definition.field_name,
+            'field_type': obj.field_definition.field_type,
+        }
+    
+    def get_value(self, obj):
+        """Return the appropriate value based on field type"""
+        if obj.field_definition.field_type == 'text':
+            return obj.text_value
+        elif obj.field_definition.field_type == 'number':
+            return obj.number_value
+        elif obj.field_definition.field_type in ['image', 'document']:
+            return obj.file_value.url if obj.file_value else None
+        return None
+
+
+class DynamicResourceSubmitSerializer(serializers.Serializer):
+    """Serializer for submitting dynamic resources"""
+    submissions = serializers.ListField(
+        child=serializers.DictField(),
+        allow_empty=False
+    )
+    
+    def validate_submissions(self, value):
+        """Validate that each submission has required fields"""
+        for submission in value:
+            if 'field_id' not in submission:
+                raise serializers.ValidationError('Each submission must have a field_id')
+            if 'value' not in submission:
+                raise serializers.ValidationError('Each submission must have a value')
+        return value
+
+
+class PaymentHistorySerializer(serializers.ModelSerializer):
+    """Serializer for payment history"""
+    order_number = serializers.CharField(source='order.order_number', read_only=True)
+    order_id = serializers.IntegerField(source='order.id', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
+    class Meta:
+        model = PaymentHistory
+        fields = [
+            'id', 'order_id', 'order_number', 'payment_method', 'transaction_id',
+            'amount', 'currency', 'status', 'status_display', 'payment_date',
+            'invoice_generated_at', 'invoice_number', 'metadata', 'created_at'
+        ]
+        read_only_fields = ['id', 'invoice_number', 'invoice_generated_at', 'created_at']

@@ -2,7 +2,8 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('verify-phone/', views.verify_phone, name='verify-phone'),
+    path('login/', views.login, name='login'),
+    path('signup/', views.signup, name='signup'),
     path('me/', views.get_user_profile, name='user-profile'),
     
     # User management endpoints (Admin only)

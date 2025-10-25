@@ -1,4 +1,6 @@
 from orders.models import OrderChecklist, ChecklistItem
+from products.models import ChecklistTemplateItem
+from django.contrib.contenttypes.models import ContentType
 
 
 class ChecklistService:
@@ -7,7 +9,8 @@ class ChecklistService:
     @staticmethod
     def generate_checklist_for_order(order):
         """
-        Generate a checklist for an order based on its items.
+        Generate a checklist for an order based on template items from products.
+        If no templates exist, falls back to default checklist generation.
         Returns the created OrderChecklist instance.
         """
         # Create or get checklist
@@ -17,20 +20,62 @@ class ChecklistService:
         if not created and checklist.items.exists():
             return checklist
         
-        # Generate checklist items
-        checklist_items = ChecklistService._generate_checklist_items(order)
+        # Try to generate checklist from templates
+        template_items = ChecklistService._get_template_items_for_order(order)
         
-        # Create checklist items
-        ChecklistItem.objects.bulk_create([
-            ChecklistItem(
-                checklist=checklist,
-                description=item['description'],
-                order_index=item['order_index']
-            )
-            for item in checklist_items
-        ])
+        if template_items:
+            # Create checklist items from templates
+            ChecklistItem.objects.bulk_create([
+                ChecklistItem(
+                    checklist=checklist,
+                    template_item=template_item,
+                    description=template_item.name,
+                    order_index=template_item.order,
+                    is_optional=template_item.is_optional
+                )
+                for template_item in template_items
+            ])
+        else:
+            # Fallback to default checklist generation
+            checklist_items = ChecklistService._generate_checklist_items(order)
+            
+            # Create checklist items
+            ChecklistItem.objects.bulk_create([
+                ChecklistItem(
+                    checklist=checklist,
+                    description=item['description'],
+                    order_index=item['order_index'],
+                    is_optional=item.get('is_optional', False)
+                )
+                for item in checklist_items
+            ])
         
         return checklist
+    
+    @staticmethod
+    def _get_template_items_for_order(order):
+        """
+        Get all checklist template items for products in the order.
+        Returns a list of ChecklistTemplateItem objects ordered by their order field.
+        """
+        template_items = []
+        
+        for order_item in order.items.all():
+            content_type = order_item.content_type
+            object_id = order_item.object_id
+            
+            # Get template items for this product
+            items = ChecklistTemplateItem.objects.filter(
+                content_type=content_type,
+                object_id=object_id
+            ).order_by('order')
+            
+            template_items.extend(items)
+        
+        # Re-sort all items by order to maintain proper sequence
+        template_items.sort(key=lambda x: x.order)
+        
+        return template_items
     
     @staticmethod
     def _generate_checklist_items(order):
@@ -187,24 +232,48 @@ class ChecklistService:
     def get_checklist_progress(checklist):
         """
         Calculate progress percentage for a checklist.
+        Excludes optional items from the calculation.
         Returns a dict with progress information.
         """
         items = checklist.items.all()
         total_items = items.count()
         
-        if total_items == 0:
+        # Calculate progress excluding optional items
+        required_items = items.filter(is_optional=False)
+        total_required = required_items.count()
+        
+        if total_required == 0:
+            # If no required items, use all items for calculation
+            if total_items == 0:
+                return {
+                    'total_items': 0,
+                    'completed_items': 0,
+                    'required_items': 0,
+                    'completed_required': 0,
+                    'progress_percentage': 0
+                }
+            
+            completed_items = items.filter(completed=True).count()
+            progress_percentage = int((completed_items / total_items) * 100)
+            
             return {
-                'total_items': 0,
-                'completed_items': 0,
-                'progress_percentage': 0
+                'total_items': total_items,
+                'completed_items': completed_items,
+                'required_items': 0,
+                'completed_required': completed_items,
+                'progress_percentage': progress_percentage
             }
         
+        # Calculate based on required items only
+        completed_required = required_items.filter(completed=True).count()
         completed_items = items.filter(completed=True).count()
-        progress_percentage = int((completed_items / total_items) * 100)
+        progress_percentage = int((completed_required / total_required) * 100)
         
         return {
             'total_items': total_items,
             'completed_items': completed_items,
+            'required_items': total_required,
+            'completed_required': completed_required,
             'progress_percentage': progress_percentage
         }
     

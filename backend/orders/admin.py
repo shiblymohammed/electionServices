@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Order, OrderItem, OrderResource, OrderChecklist, ChecklistItem
+from .models import Order, OrderItem, OrderResource, OrderChecklist, ChecklistItem, DynamicResourceSubmission
 
 
 class OrderItemInline(admin.TabularInline):
@@ -31,3 +31,23 @@ class OrderResourceAdmin(admin.ModelAdmin):
 class OrderChecklistAdmin(admin.ModelAdmin):
     list_display = ['order', 'created_at']
     inlines = [ChecklistItemInline]
+
+
+
+@admin.register(DynamicResourceSubmission)
+class DynamicResourceSubmissionAdmin(admin.ModelAdmin):
+    list_display = ['order_item', 'field_definition', 'get_value', 'uploaded_at']
+    list_filter = ['field_definition__field_type', 'uploaded_at']
+    search_fields = ['order_item__order__order_number', 'field_definition__field_name']
+    readonly_fields = ['uploaded_at']
+    
+    def get_value(self, obj):
+        """Display the appropriate value based on field type"""
+        if obj.field_definition.field_type == 'text':
+            return obj.text_value[:50] if obj.text_value else None
+        elif obj.field_definition.field_type == 'number':
+            return obj.number_value
+        elif obj.field_definition.field_type in ['image', 'document']:
+            return obj.file_value.name if obj.file_value else None
+        return None
+    get_value.short_description = 'Value'

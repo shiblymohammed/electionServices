@@ -38,7 +38,7 @@
    ```
    FIREBASE_CREDENTIALS_PATH=backend/firebase-credentials.json
    ```
-   Or use an absolute path:
+   Or use an absolute path:                                                         
    ```
    FIREBASE_CREDENTIALS_PATH=/absolute/path/to/firebase-credentials.json
    ```

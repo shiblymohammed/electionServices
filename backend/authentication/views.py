@@ -2,7 +2,7 @@ from rest_framework import status, generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from firebase_admin import auth as firebase_auth
+from django.contrib.auth import authenticate
 from django.db.models import Count
 from .models import CustomUser
 from .serializers import UserSerializer, UserCreateSerializer, UserUpdateSerializer
@@ -12,39 +12,30 @@ from .permissions import IsAdmin
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def verify_phone(request):
+def login(request):
     """
-    Verify Firebase token and create/login user.
-    Endpoint: POST /api/auth/verify-phone/
+    Login with username and password.
+    Endpoint: POST /api/auth/login/
+    Body: { "username": "...", "password": "..." }
     """
-    firebase_token = request.data.get('firebase_token')
-    phone_number = request.data.get('phone')
+    username = request.data.get('username')
+    password = request.data.get('password')
     
-    if not firebase_token:
+    if not username or not password:
         return Response(
-            {'error': 'Firebase token is required'},
+            {'error': 'Username and password are required'},
             status=status.HTTP_400_BAD_REQUEST
         )
     
     try:
-        # Verify Firebase token
-        decoded_token = firebase_auth.verify_id_token(firebase_token)
-        firebase_uid = decoded_token['uid']
+        # Authenticate user
+        user = authenticate(username=username, password=password)
         
-        # Get or create user
-        user, created = CustomUser.objects.get_or_create(
-            firebase_uid=firebase_uid,
-            defaults={
-                'phone_number': phone_number or decoded_token.get('phone_number', ''),
-                'username': firebase_uid,  # Use firebase_uid as username
-                'role': 'user'
-            }
-        )
-        
-        # If user exists but phone number is different, update it
-        if not created and phone_number and user.phone_number != phone_number:
-            user.phone_number = phone_number
-            user.save()
+        if not user:
+            return Response(
+                {'error': 'Invalid username or password'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
         
         # Generate JWT token
         jwt_token = generate_jwt_token(user)
@@ -58,14 +49,63 @@ def verify_phone(request):
             'role': user.role
         }, status=status.HTTP_200_OK)
         
-    except firebase_auth.InvalidIdTokenError:
-        return Response(
-            {'error': 'Invalid Firebase token'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
     except Exception as e:
         return Response(
             {'error': f'Authentication failed: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def signup(request):
+    """
+    Create new user account.
+    Endpoint: POST /api/auth/signup/
+    Body: { "username": "...", "password": "...", "phone_number": "..." }
+    """
+    username = request.data.get('username')
+    password = request.data.get('password')
+    phone_number = request.data.get('phone_number', '')
+    
+    if not username or not password:
+        return Response(
+            {'error': 'Username and password are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Check if username already exists
+        if CustomUser.objects.filter(username=username).exists():
+            return Response(
+                {'error': 'Username already exists'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create user
+        user = CustomUser.objects.create_user(
+            username=username,
+            password=password,
+            phone_number=phone_number,
+            role='user'
+        )
+        
+        # Generate JWT token
+        jwt_token = generate_jwt_token(user)
+        
+        # Serialize user data
+        user_data = UserSerializer(user).data
+        
+        return Response({
+            'token': jwt_token,
+            'user': user_data,
+            'role': user.role,
+            'message': 'Account created successfully'
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Signup failed: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
