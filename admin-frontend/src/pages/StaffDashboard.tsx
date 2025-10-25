@@ -114,7 +114,7 @@ const StaffDashboard = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Staff Dashboard</h1>
               <p className="text-sm text-gray-600 mt-1">
-                Welcome, {user?.name || user?.phone}
+                Welcome, {user?.name || user?.username}
               </p>
             </div>
             <button

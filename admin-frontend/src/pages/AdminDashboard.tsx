@@ -91,7 +91,7 @@ const AdminDashboard = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
               <p className="text-sm text-gray-600 mt-1">
-                Welcome, {user?.name || user?.phone} ({user?.role})
+                Welcome, {user?.name || user?.username} ({user?.role})
               </p>
             </div>
             <button
@@ -187,7 +187,7 @@ const AdminDashboard = () => {
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Link
             to="/orders"
             className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition"
@@ -207,6 +207,22 @@ const AdminDashboard = () => {
 
           {user?.role === 'admin' && (
             <>
+              <Link
+                to="/analytics"
+                className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition"
+              >
+                <div className="flex items-center">
+                  <div className="bg-emerald-100 rounded-full p-3 mr-4">
+                    <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Analytics Dashboard</h3>
+                    <p className="text-sm text-gray-600">View business metrics and insights</p>
+                  </div>
+                </div>
+              </Link>
               <Link
                 to="/staff"
                 className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition"
@@ -239,6 +255,22 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               </Link>
+              <Link
+                to="/products"
+                className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition"
+              >
+                <div className="flex items-center">
+                  <div className="bg-amber-100 rounded-full p-3 mr-4">
+                    <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Manage Products</h3>
+                    <p className="text-sm text-gray-600">Manage packages and campaigns</p>
+                  </div>
+                </div>
+              </Link>
             </>
           )}
 
@@ -259,6 +291,37 @@ const AdminDashboard = () => {
             </div>
           </button>
         </div>
+
+        {/* New Features Info */}
+        {user?.role === 'admin' && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-6 mb-8">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-blue-900">New Features Available</h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p className="mb-2">Access these new features from the product management page:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li><strong>Image Galleries:</strong> Add multiple images to products with drag-and-drop reordering</li>
+                    <li><strong>Dynamic Resource Fields:</strong> Configure custom fields for customers to upload resources</li>
+                    <li><strong>Checklist Templates:</strong> Create task checklists that auto-generate when orders are assigned</li>
+                    <li><strong>Analytics Dashboard:</strong> View revenue trends, top products, and staff performance metrics</li>
+                  </ul>
+                  <p className="mt-3">
+                    <Link to="/products" className="font-medium text-blue-800 hover:text-blue-900 underline">
+                      Go to Products →
+                    </Link>
+                    {' '}to configure these features for each product.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Recent Orders */}
         <div className="bg-white rounded-lg shadow">

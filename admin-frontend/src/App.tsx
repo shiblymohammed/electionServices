@@ -6,6 +6,9 @@ import OrderDetailPage from './pages/OrderDetailPage';
 import StaffAssignmentPage from './pages/StaffAssignmentPage';
 import StaffListPage from './pages/StaffListPage';
 import UserManagementPage from './pages/UserManagementPage';
+import ProductManagementPage from './pages/ProductManagementPage';
+import ProductDetailPage from './pages/ProductDetailPage';
+import AnalyticsDashboardPage from './pages/AnalyticsDashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleDashboard from './components/RoleDashboard';
 
@@ -60,6 +63,30 @@ function App() {
             element={
               <ProtectedRoute requireAdmin>
                 <UserManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute requireAdmin>
+                <ProductManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/:type/:id"
+            element={
+              <ProtectedRoute requireAdmin>
+                <ProductDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AnalyticsDashboardPage />
               </ProtectedRoute>
             }
           />

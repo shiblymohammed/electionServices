@@ -48,7 +48,7 @@ const UserManagementPage = () => {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-700">
-                {user?.phone || user?.name || 'Admin'}
+                {user?.username || user?.name || 'Admin'}
               </span>
               <button
                 onClick={logout}

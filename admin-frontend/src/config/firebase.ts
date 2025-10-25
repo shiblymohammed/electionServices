@@ -10,8 +10,9 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase with a unique name for admin app
+// This prevents conflicts with the user-facing frontend
+const app = initializeApp(firebaseConfig, 'admin-app');
 
 // Initialize Firebase Authentication
 export const auth = getAuth(app);

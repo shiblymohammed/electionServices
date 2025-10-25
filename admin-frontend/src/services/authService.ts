@@ -1,15 +1,32 @@
 import api from './api';
-import { User, LoginResponse } from '../types/auth';
 
-export const verifyPhone = async (phone: string, firebaseToken: string): Promise<LoginResponse> => {
-  const response = await api.post<LoginResponse>('/auth/verify-phone/', {
-    phone,
-    firebase_token: firebaseToken,
-  });
-  return response.data;
-};
+interface LoginResponse {
+  token: string;
+  user: {
+    id: number;
+    username: string;
+    phone_number: string;
+    role: 'user' | 'staff' | 'admin';
+  };
+  role: string;
+}
 
-export const getCurrentUser = async (): Promise<User> => {
-  const response = await api.get<User>('/auth/me/');
-  return response.data;
-};
+class AuthService {
+  /**
+   * Login with username and password
+   */
+  async login(username: string, password: string): Promise<LoginResponse> {
+    try {
+      const response = await api.post<LoginResponse>('/auth/login/', {
+        username,
+        password,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error logging in:', error);
+      throw new Error(error.response?.data?.error || 'Login failed');
+    }
+  }
+}
+
+export default new AuthService();

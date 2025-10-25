@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthState, LoginResponse } from '../types/auth';
+import { User, AuthState } from '../types/auth';
 import api from '../services/api';
 
 interface AuthContextType extends AuthState {
-  login: (phone: string, firebaseToken: string) => Promise<void>;
+  login: (userData: User, jwtToken: string) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -48,15 +48,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initializeAuth();
   }, []);
 
-  const login = async (phone: string, firebaseToken: string) => {
+  const login = (userData: User, jwtToken: string) => {
     try {
-      const response = await api.post<LoginResponse>('/auth/verify-phone/', {
-        phone,
-        firebase_token: firebaseToken,
-      });
-
-      const { token: jwtToken, user: userData } = response.data;
-
       // Verify user is admin or staff
       if (userData.role !== 'admin' && userData.role !== 'staff') {
         throw new Error('Access denied. Admin or staff privileges required.');
@@ -71,9 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(userData);
     } catch (error: any) {
       console.error('Login error:', error);
-      throw new Error(
-        error.response?.data?.error?.message || error.message || 'Login failed. Please try again.'
-      );
+      throw new Error(error.message || 'Login failed. Please try again.');
     }
   };
 

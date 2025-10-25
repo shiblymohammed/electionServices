@@ -1,9 +1,11 @@
 export interface User {
   id: number;
-  phone: string;
+  username: string;
+  phone_number: string;
+  phone?: string;
   role: 'user' | 'staff' | 'admin';
   name?: string;
-  firebase_uid: string;
+  firebase_uid?: string;
 }
 
 export interface AuthState {
