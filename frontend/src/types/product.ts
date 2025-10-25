@@ -4,6 +4,15 @@ export interface PackageItem {
   quantity: number;
 }
 
+export interface ProductImage {
+  id: number;
+  image: string;
+  thumbnail: string;
+  is_primary: boolean;
+  order: number;
+  alt_text: string;
+}
+
 export interface Package {
   id: number;
   name: string;
@@ -12,6 +21,7 @@ export interface Package {
   items: PackageItem[];
   is_active: boolean;
   created_at: string;
+  images?: ProductImage[];
 }
 
 export interface Campaign {
@@ -22,6 +32,7 @@ export interface Campaign {
   description: string;
   is_active: boolean;
   created_at: string;
+  images?: ProductImage[];
 }
 
 export type Product = Package | Campaign;

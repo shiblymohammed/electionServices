@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import MainLayout from './layout/MainLayout';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import PackageDetailPage from './pages/PackageDetailPage';
@@ -9,7 +10,7 @@ import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import ResourceUploadPage from './pages/ResourceUploadPage';
-import MyOrdersPage from './pages/MyOrdersPage';
+import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -18,36 +19,43 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <Routes>
+            {/* Login page without layout */}
             <Route path="/login" element={<LoginPage />} />
+            
+            {/* Public routes with MainLayout - No login required */}
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <MainLayout>
                   <HomePage />
-                </ProtectedRoute>
+                </MainLayout>
               }
             />
             <Route
               path="/package/:id"
               element={
-                <ProtectedRoute>
+                <MainLayout>
                   <PackageDetailPage />
-                </ProtectedRoute>
+                </MainLayout>
               }
             />
             <Route
               path="/campaign/:id"
               element={
-                <ProtectedRoute>
+                <MainLayout>
                   <CampaignDetailPage />
-                </ProtectedRoute>
+                </MainLayout>
               }
             />
+            
+            {/* Protected routes - Login required */}
             <Route
               path="/cart"
               element={
                 <ProtectedRoute>
-                  <CartPage />
+                  <MainLayout>
+                    <CartPage />
+                  </MainLayout>
                 </ProtectedRoute>
               }
             />
@@ -55,7 +63,9 @@ function App() {
               path="/checkout"
               element={
                 <ProtectedRoute>
-                  <CheckoutPage />
+                  <MainLayout>
+                    <CheckoutPage />
+                  </MainLayout>
                 </ProtectedRoute>
               }
             />
@@ -63,7 +73,9 @@ function App() {
               path="/payment-success/:orderId"
               element={
                 <ProtectedRoute>
-                  <PaymentSuccessPage />
+                  <MainLayout>
+                    <PaymentSuccessPage />
+                  </MainLayout>
                 </ProtectedRoute>
               }
             />
@@ -71,18 +83,25 @@ function App() {
               path="/upload-resources/:orderId"
               element={
                 <ProtectedRoute>
-                  <ResourceUploadPage />
+                  <MainLayout>
+                    <ResourceUploadPage />
+                  </MainLayout>
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/my-orders"
+              path="/profile"
               element={
                 <ProtectedRoute>
-                  <MyOrdersPage />
+                  <MainLayout>
+                    <ProfilePage />
+                  </MainLayout>
                 </ProtectedRoute>
               }
             />
+            
+            {/* Redirect old my-orders route to profile */}
+            <Route path="/my-orders" element={<Navigate to="/profile" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </CartProvider>

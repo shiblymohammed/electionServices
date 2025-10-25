@@ -80,14 +80,9 @@ const PaymentSuccessPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Payment Successful</h1>
-        </div>
-      </header>
+    <>
 
-      <main className="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="flex-grow max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8 w-full">
         {/* Success Message */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
           <div className="bg-green-50 px-6 py-8 text-center border-b border-green-100">
@@ -133,7 +128,7 @@ const PaymentSuccessPage = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600 mb-1">Contact</p>
-                <p className="font-medium text-gray-900">{user?.phone}</p>
+                <p className="font-medium text-gray-900">{user?.phone_number || user?.username}</p>
               </div>
             </div>
 
@@ -218,18 +213,18 @@ const PaymentSuccessPage = () => {
           <p>
             A confirmation has been sent to your registered phone number.
             <br />
-            You can view your order status anytime from{' '}
+            You can view your order status anytime from your{' '}
             <button
-              onClick={() => navigate('/my-orders')}
+              onClick={() => navigate('/profile')}
               className="text-indigo-600 hover:text-indigo-800 font-medium underline"
             >
-              My Orders
+              Profile
             </button>
             .
           </p>
         </div>
       </main>
-    </div>
+    </>
   );
 };
 

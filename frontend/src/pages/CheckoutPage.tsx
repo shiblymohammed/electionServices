@@ -35,22 +35,9 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/cart')}
-              className="text-indigo-600 hover:text-indigo-800 font-medium"
-            >
-              ← Back to Cart
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
-          </div>
-        </div>
-      </header>
+    <>
 
-      <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="flex-grow max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 w-full">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
             <div className="flex items-start">
@@ -142,7 +129,7 @@ const CheckoutPage = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Contact</span>
-                  <span className="font-medium text-gray-900">{user?.phone}</span>
+                  <span className="font-medium text-gray-900">{user?.phone_number || user?.username}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Items</span>
@@ -154,7 +141,7 @@ const CheckoutPage = () => {
             <RazorpayButton
               onSuccess={handlePaymentSuccess}
               onError={handlePaymentError}
-              userPhone={user?.phone}
+              userPhone={user?.phone_number || user?.username}
             />
 
             <p className="text-xs text-gray-500 text-center mt-4">
@@ -203,7 +190,7 @@ const CheckoutPage = () => {
           </div>
         </div>
       </main>
-    </div>
+    </>
   );
 };
 

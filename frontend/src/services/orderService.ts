@@ -54,7 +54,7 @@ class OrderService {
     formData: FormData
   ): Promise<{ success: boolean; message: string; pending_items: any[] }> {
     const response = await api.post(
-      `/orders/${orderId}/upload-resources/`,
+      `/orders/${orderId}/submit-resources/`,
       formData,
       {
         headers: {
@@ -62,6 +62,26 @@ class OrderService {
         },
       }
     );
+    return response.data;
+  }
+
+  /**
+   * Get resource field definitions for an order
+   */
+  async getResourceFields(orderId: number): Promise<any> {
+    // Add timestamp to prevent caching
+    const timestamp = new Date().getTime();
+    const response = await api.get(`/orders/${orderId}/resource-fields/?t=${timestamp}`);
+    return response.data;
+  }
+
+  /**
+   * Download invoice for an order
+   */
+  async downloadInvoice(orderId: number): Promise<Blob> {
+    const response = await api.get(`/orders/${orderId}/invoice/download/`, {
+      responseType: 'blob',
+    });
     return response.data;
   }
 }

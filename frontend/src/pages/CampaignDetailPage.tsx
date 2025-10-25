@@ -3,10 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Campaign } from '../types/product';
 import productService from '../services/productService';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import ImageGallery from '../components/ImageGallery';
 
 const CampaignDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { addToCart, loading: cartLoading } = useCart();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,12 @@ const CampaignDetailPage = () => {
 
   const handleAddToCart = async () => {
     if (!campaign) return;
+
+    // Check if user is logged in
+    if (!user) {
+      navigate('/login', { state: { from: `/campaign/${id}` } });
+      return;
+    }
 
     try {
       setAddingToCart(true);
@@ -74,19 +83,9 @@ const CampaignDetailPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => navigate('/')}
-            className="text-indigo-600 hover:text-indigo-800 font-medium"
-          >
-            ← Back to Products
-          </button>
-        </div>
-      </header>
+    <>
 
-      <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="flex-grow max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 w-full">
         {successMessage && (
           <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
             {successMessage}
@@ -94,6 +93,13 @@ const CampaignDetailPage = () => {
         )}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="p-8">
+            {/* Image Gallery */}
+            {campaign.images && campaign.images.length > 0 && (
+              <div className="mb-8">
+                <ImageGallery images={campaign.images} productName={campaign.name} />
+              </div>
+            )}
+
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -163,7 +169,7 @@ const CampaignDetailPage = () => {
           </div>
         </div>
       </main>
-    </div>
+    </>
   );
 };
 

@@ -1,210 +1,287 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import authService from '../services/authService';
-import { useAuth } from '../context/AuthContext';
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import authService from "../services/authService";
+import { useAuth } from "../context/AuthContext";
 
 const LoginPage = () => {
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [isSignup, setIsSignup] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const location = useLocation();
+  const { login: authLogin } = useAuth();
 
-  useEffect(() => {
-    // Initialize reCAPTCHA when component mounts
-    authService.initializeRecaptcha('recaptcha-container');
+  // Get the page user was trying to access before login
+  const from = (location.state as any)?.from || "/";
 
-    return () => {
-      // Cleanup reCAPTCHA on unmount
-      authService.clearRecaptcha();
-    };
-  }, []);
-
-  const handleSendOTP = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      // Validate phone number format
-      if (!phoneNumber.startsWith('+')) {
-        throw new Error('Phone number must include country code (e.g., +91)');
-      }
+      const response = await authService.login(username, password);
 
-      await authService.sendOTP(phoneNumber);
-      setStep('otp');
+      // Store token and user data
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("user", JSON.stringify(response.user));
+
+      // Update auth context
+      authLogin(response.user, response.token);
+
+      // Navigate back to the page user was trying to access
+      navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Failed to send OTP. Please try again.');
+      setError(err.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOTP = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
+
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Verify OTP with Firebase
-      const firebaseToken = await authService.verifyOTP(otp);
+      const response = await authService.signup(
+        username,
+        password,
+        phoneNumber
+      );
 
-      // Send Firebase token to backend for verification
-      await login(phoneNumber, firebaseToken);
+      // Store token and user data
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("user", JSON.stringify(response.user));
 
-      // Navigate to home page after successful login
-      navigate('/');
+      // Update auth context
+      authLogin(response.user, response.token);
+
+      // Navigate back to the page user was trying to access
+      navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Invalid OTP. Please try again.');
+      setError(err.message || "Signup failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendOTP = async () => {
-    setError('');
-    setLoading(true);
-
-    try {
-      await authService.sendOTP(phoneNumber);
-      setError('');
-      alert('OTP resent successfully!');
-    } catch (err: any) {
-      setError(err.message || 'Failed to resend OTP. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const toggleMode = () => {
+    setIsSignup(!isSignup);
+    setError("");
+    setUsername("");
+    setPassword("");
+    setConfirmPassword("");
+    setPhoneNumber("");
   };
 
-  const handleChangeNumber = () => {
-    setStep('phone');
-    setOtp('');
-    setError('');
-    authService.clearRecaptcha();
-    authService.initializeRecaptcha('recaptcha-container');
+  const handleClose = () => {
+    navigate(-1); // Go back to previous page
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Sign in to Election Cart
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          {step === 'phone'
-            ? 'Enter your phone number to receive an OTP'
-            : 'Enter the OTP sent to your phone'}
-        </p>
-      </div>
+    <div className="min-h-screen bg-black bg-opacity-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative animate-fadeIn">
+        {/* Close Button */}
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          aria-label="Close"
+        >
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-bold text-gray-900">
+            {isSignup ? "Create Account" : "Welcome Back"}
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            {isSignup
+              ? "Sign up to start shopping"
+              : "Sign in to your account"}
+          </p>
+        </div>
+
+        {/* Content */}
+        <div>
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
               {error}
             </div>
           )}
 
-          {step === 'phone' ? (
-            <form onSubmit={handleSendOTP} className="space-y-6">
-              <div>
-                <label
-                  htmlFor="phone"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Phone Number
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    required
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="+919876543210"
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    disabled={loading}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  Include country code (e.g., +91 for India)
+          <form
+            onSubmit={isSignup ? handleSignup : handleLogin}
+            className="space-y-6"
+          >
+            <div>
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Username
+              </label>
+              <div className="mt-1">
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Password
+              </label>
+              <div className="mt-1">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  disabled={loading}
+                />
+              </div>
+              {isSignup && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Must be at least 6 characters
                 </p>
-              </div>
+              )}
+            </div>
 
-              <div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Sending...' : 'Send OTP'}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyOTP} className="space-y-6">
-              <div>
-                <label
-                  htmlFor="otp"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  OTP Code
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="otp"
-                    name="otp"
-                    type="text"
-                    required
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    placeholder="Enter 6-digit OTP"
-                    maxLength={6}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    disabled={loading}
-                  />
+            {isSignup && (
+              <>
+                <div>
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Confirm Password
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm your password"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      disabled={loading}
+                    />
+                  </div>
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  OTP sent to {phoneNumber}
-                </p>
-              </div>
 
-              <div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Verifying...' : 'Verify OTP'}
-                </button>
-              </div>
+                <div>
+                  <label
+                    htmlFor="phone"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Phone Number (Optional)
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+919876543210"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={handleResendOTP}
-                  disabled={loading}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:text-gray-400"
-                >
-                  Resend OTP
-                </button>
-                <button
-                  type="button"
-                  onClick={handleChangeNumber}
-                  disabled={loading}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:text-gray-400"
-                >
-                  Change Number
-                </button>
-              </div>
-            </form>
-          )}
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {loading
+                  ? isSignup
+                    ? "Creating Account..."
+                    : "Signing In..."
+                  : isSignup
+                  ? "Sign Up"
+                  : "Sign In"}
+              </button>
+            </div>
+          </form>
 
-          {/* reCAPTCHA container */}
-          <div id="recaptcha-container"></div>
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">
+                  {isSignup
+                    ? "Already have an account?"
+                    : "Don't have an account?"}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={toggleMode}
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                {isSignup ? "Sign In Instead" : "Create New Account"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

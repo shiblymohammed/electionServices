@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import CartItem from '../components/CartItem';
 import CartSummary from '../components/CartSummary';
 
 const CartPage = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
   const { cart, removeFromCart, clearCart, loading } = useCart();
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -41,48 +39,8 @@ const CartPage = () => {
     navigate('/checkout');
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="text-indigo-600 hover:text-indigo-800 font-medium"
-            >
-              ← Continue Shopping
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900">Shopping Cart</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => navigate('/my-orders')}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium"
-            >
-              My Orders
-            </button>
-            <div className="text-sm text-gray-700">
-              <span className="font-medium">{user?.phone}</span>
-              <span className="ml-2 px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs">
-                {user?.role}
-              </span>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 w-full">
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
             {error}
@@ -150,7 +108,6 @@ const CartPage = () => {
             </button>
           </div>
         )}
-      </main>
     </div>
   );
 };

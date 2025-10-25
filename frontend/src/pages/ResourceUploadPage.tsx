@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import orderService from '../services/orderService';
 import { Order, OrderItem } from '../types/order';
+import { ResourceFieldDefinition } from '../types/resource';
+import DynamicResourceUploadForm from '../components/DynamicResourceUploadForm';
 import ResourceForm from '../components/ResourceForm';
 import ProgressIndicator from '../components/ProgressIndicator';
 
@@ -13,36 +15,74 @@ const ResourceUploadPage = () => {
   const [error, setError] = useState('');
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [pendingItems, setPendingItems] = useState<OrderItem[]>([]);
+  const [resourceFields, setResourceFields] = useState<{ [itemId: number]: ResourceFieldDefinition[] }>({});
+  const [useDynamicForm, setUseDynamicForm] = useState(false);
 
-  useEffect(() => {
-    const fetchOrder = async () => {
-      if (!orderId) {
-        setError('Invalid order ID');
-        setLoading(false);
+  const fetchOrder = async () => {
+    if (!orderId) {
+      setError('Invalid order ID');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const orderData = await orderService.getOrder(parseInt(orderId));
+      setOrder(orderData);
+      
+      // Filter items that need resources
+      const itemsNeedingResources = orderData.items.filter(
+        (item) => !item.resources_uploaded
+      );
+      setPendingItems(itemsNeedingResources);
+      
+      if (itemsNeedingResources.length === 0) {
+        // All resources uploaded, redirect to home or order details
+        navigate('/');
         return;
       }
 
+      // Try to fetch dynamic resource fields
       try {
-        const orderData = await orderService.getOrder(parseInt(orderId));
-        setOrder(orderData);
+        const fieldsData = await orderService.getResourceFields(parseInt(orderId));
+        console.log('Fetched resource fields:', fieldsData);
         
-        // Filter items that need resources
-        const itemsNeedingResources = orderData.items.filter(
-          (item) => !item.resources_uploaded
-        );
-        setPendingItems(itemsNeedingResources);
-        
-        if (itemsNeedingResources.length === 0) {
-          // All resources uploaded, redirect to home or order details
-          navigate('/');
+        if (fieldsData && fieldsData.items && fieldsData.items.length > 0) {
+          // Transform the response into the expected format
+          const fieldsMap: { [itemId: number]: ResourceFieldDefinition[] } = {};
+          
+          fieldsData.items.forEach((item: any) => {
+            if (item.fields && item.fields.length > 0) {
+              fieldsMap[item.order_item_id] = item.fields;
+            }
+          });
+          
+          console.log('Transformed resource fields:', fieldsMap);
+          
+          if (Object.keys(fieldsMap).length > 0) {
+            setResourceFields(fieldsMap);
+            setUseDynamicForm(true);
+          } else {
+            console.log('No resource fields found for any items');
+            setUseDynamicForm(false);
+          }
+        } else {
+          console.log('No items with resource fields in response');
+          setUseDynamicForm(false);
         }
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to load order details');
-      } finally {
-        setLoading(false);
+      } catch (fieldErr) {
+        // If resource fields endpoint doesn't exist or returns error, use static form
+        console.error('Error fetching resource fields:', fieldErr);
+        setUseDynamicForm(false);
       }
-    };
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to load order details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchOrder();
   }, [orderId, navigate]);
 
@@ -106,17 +146,9 @@ const ResourceUploadPage = () => {
   const currentItem = pendingItems[currentItemIndex];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Upload Campaign Resources</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Order #{order.order_number}
-          </p>
-        </div>
-      </header>
+    <>
 
-      <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="flex-grow max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 w-full">
         {/* Progress Indicator */}
         <ProgressIndicator
           totalItems={pendingItems.length}
@@ -148,15 +180,26 @@ const ResourceUploadPage = () => {
         </div>
 
         {/* Resource Form */}
-        <ResourceForm
-          orderId={order.id}
-          orderItem={currentItem}
-          onSuccess={handleResourceSubmitted}
-          onSkip={handleSkip}
-          isLastItem={currentItemIndex === pendingItems.length - 1}
-        />
+        {useDynamicForm && resourceFields[currentItem.id] ? (
+          <DynamicResourceUploadForm
+            orderId={order.id}
+            orderItem={currentItem}
+            resourceFields={resourceFields[currentItem.id]}
+            onSuccess={handleResourceSubmitted}
+            onSkip={handleSkip}
+            isLastItem={currentItemIndex === pendingItems.length - 1}
+          />
+        ) : (
+          <ResourceForm
+            orderId={order.id}
+            orderItem={currentItem}
+            onSuccess={handleResourceSubmitted}
+            onSkip={handleSkip}
+            isLastItem={currentItemIndex === pendingItems.length - 1}
+          />
+        )}
       </main>
-    </div>
+    </>
   );
 };
 
